@@ -26,6 +26,7 @@ Install
 -------
 
 ::
+
    pip install atoot
 
 
@@ -35,6 +36,7 @@ Use
 Basic usage example:
 
 .. code-block:: python
+
    import atoot
    import asyncio
 
@@ -53,6 +55,7 @@ Basic usage example:
 Using client as a context manager, get 5 pages of home timeline and all notifications:
 
 .. code-block:: python
+
    async def mastodon_bot():
        instance = "botsin.space"
        access_token = "YOUR_APPLICATION_ACCESS_TOKEN"
