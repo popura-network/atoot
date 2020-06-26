@@ -10,6 +10,7 @@ import aiohttp
 
 __useragent__ = "atoot/1.0; (+https://github.com/popura-network/atoot)"
 SCOPES = 'read write follow'
+REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
 
 def str_bool(b):
     """Convert boolean to a string, in the way expected by the API."""
@@ -86,31 +87,7 @@ class MastodonAPI:
             raise NetworkError("Could not complete request: %s" % e)
 
         async with r:
-            if r.status >= 400:
-                error_message = await self._get_error_message(r)
-
-                if r.status == 401:
-                    ExceptionType = UnauthorizedError
-                elif r.status == 403:
-                    ExceptionType = ForbiddenError
-                elif r.status == 404:
-                    ExceptionType = NotFoundError
-                elif r.status == 409:
-                    ExceptionType = ConflictError
-                elif r.status == 410:
-                    ExceptionType = GoneError
-                elif r.status == 422:
-                    ExceptionType = UnprocessedError
-                elif r.status == 429:
-                    ExceptionType = RatelimitError
-                elif r.status == 503:
-                    ExceptionType = UnavailableError
-                elif r.status < 500:
-                    ExceptionType = ClientError
-                else:
-                    ExceptionType = ServerError
-
-                raise ExceptionType(r.status, r.reason, error_message)
+            await check_exception(r)
 
             try:
                 content = await r.json()
@@ -162,20 +139,6 @@ class MastodonAPI:
 
         return results
 
-
-    async def _get_error_message(self, response):
-        error_message = "Exception has occured"
-        try:
-            content = await response.json()
-            error_message = content["error"]
-        except:
-            try:
-                error_message = await response.text()
-            except:
-                pass
-
-        return error_message
-
     async def get(self, url, **kwargs):
         return await self.__api_request(self.session.get, url, **kwargs)
 
@@ -208,58 +171,73 @@ class MastodonAPI:
                 '/api/v1/statuses/%s/%s' % (get_id(status), action))
 
     @staticmethod
-    async def create_app(instance, use_https=True, client_name="atoot", 
-            client_website="https://github.com/popura-network/atoot"):
+    async def create_app(session, instance, use_https=True, scope=None,
+            client_name="atoot", client_website=None):
         """Create a new application to obtain OAuth2 credentials."""
         params = {
-            'client_name': client_name, 'scopes': SCOPES,
-            'redirect_uris': 'urn:ietf:wg:oauth:2.0:oob',
+            'client_name': client_name, 'scopes': scope if scope else SCOPES,
+            'redirect_uris': REDIRECT_URI,
         }
         if client_website: params["website"] = client_website
         url = 'http%s://%s/api/v1/apps' % ("s" if use_https else "", instance) 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, params=params) as resp:
-                res = await resp.json()
+        r = await session.post(url, params=params)
+        async with r:
+            await check_exception(r)
 
+            try:
+                res = await r.json()
+            except Exception as e:
+                raise ApiError("Can't parse JSON reply: %s" % e)
+
+        assert "client_id" in res, "Invalid JSON reply"
+        assert "client_secret" in res, "Invalid JSON reply"
         return (res["client_id"], res["client_secret"])
 
     @staticmethod
     def browser_login_url(instance, client_id, use_https=True):
         """Returns a URL for manual log in via browser"""
         return "http{}://{}/oauth/authorize/?{}".format(
-                "s" if use_https else "", instance,
-                urlencode({
-                    "response_type": "code",
-                    "redirect_uri": "urn:ietf:wg:oauth:2.0:oob",
-                    "scope": SCOPES, "client_id": client_id
-                })
+            "s" if use_https else "", instance,
+            urlencode({
+                "response_type": "code", "client_id": client_id,
+                "redirect_uri": REDIRECT_URI, "scope": SCOPES
+            })
         )
 
     ## REST API
 
-    async def login(self, username=None, password=None, oauth_code=None):
-        if self.client_id and self.client_secret and username and password:
-            params = {
-                'grant_type': 'password', 'scope': SCOPES,
-                'client_id': self.client_id, 
-                'client_secret': self.client_secret,
-                'username': username, 'password': password,
-            }
-            res = await self.post('/oauth/token', params=params)
-            # If auth fails, it redirects to the login page
-            # if len(response.history) != 0:
-            #     raise AuthenticationError()
-        elif self.client_id and self.client_secret and oauth_code:
-            params = {
-                'grant_type': 'authorization_code', 'code': oauth_code,
-                'client_id': self.client_id, 
-                'client_secret': self.client_secret,
-                'redirect_uri': 'urn:ietf:wg:oauth:2.0:oob',
-            }
-            res = await self.post('/oauth/token', params=params)
-        else:
-            raise Exception("Auth credentials not specified")
+    @staticmethod
+    async def login(session, instance, client_id, client_secret, 
+            use_https=True, username=None, password=None, oauth_code=None, 
+            scope=None):
+        """Get OAuth access_token from the server"""
+        params = {
+            "client_id": client_id, "client_secret": client_secret,
+            "redirect_uri": REDIRECT_URI,
+            "scope": scope if scope else SCOPES,
+        }
 
+        if username and password:
+            params["grant_type"] = "password"
+            params['username'] = username
+            params['password'] = password
+        elif oauth_code:
+            params["grant_type"] = "authorization_code"
+            params["code"] = oauth_code
+        else:
+            params["grant_type"] = "client_credentials"
+
+        url = "http%s://%s/oauth/token" % ("s" if use_https else "", instance)
+        r = await session.post(url, params=params)
+        async with r:
+            await check_exception(r)
+
+            try:
+                res = await r.json()
+            except Exception as e:
+                raise ApiError("Can't parse JSON reply: %s" % e)
+
+        assert "access_token" in res, "Invalid JSON reply"
         return res["access_token"]
 
     async def revoke_token(self, client_id, client_secret, token):
@@ -288,7 +266,8 @@ class MastodonAPI:
     async def update_credentials(self, discoverable=None, bot=None, 
             display_name=None, note=None,  avatar=None, header=None, 
             locked=None, fields_attributes=None, params={}):
-        if discoverable is not None: params["discoverable"] = str_bool(discoverable)
+        if discoverable is not None: 
+            params["discoverable"] = str_bool(discoverable)
         if bot is not None: params["bot"] = str_bool(bot)
         if display_name: params["display_name"] = display_name
         if note: params["note"] = note
@@ -805,6 +784,41 @@ async def client(*args, **kwargs):
         yield c
     finally:
         await c.close()
+
+async def check_exception(r):
+    if r.status >= 400:
+        error_message = "Exception has occured"
+        try:
+            content = await r.json()
+            error_message = content["error"]
+        except:
+            try:
+                error_message = await r.text()
+            except:
+                pass
+
+        if r.status == 401:
+            ExceptionType = UnauthorizedError
+        elif r.status == 403:
+            ExceptionType = ForbiddenError
+        elif r.status == 404:
+            ExceptionType = NotFoundError
+        elif r.status == 409:
+            ExceptionType = ConflictError
+        elif r.status == 410:
+            ExceptionType = GoneError
+        elif r.status == 422:
+            ExceptionType = UnprocessedError
+        elif r.status == 429:
+            ExceptionType = RatelimitError
+        elif r.status == 503:
+            ExceptionType = UnavailableError
+        elif r.status < 500:
+            ExceptionType = ClientError
+        else:
+            ExceptionType = ServerError
+
+        raise ExceptionType(r.status, r.reason, error_message)
 
 class MastodonError(Exception):
     """Base class for all mastodon exceptions"""
