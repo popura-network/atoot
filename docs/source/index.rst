@@ -10,12 +10,6 @@ atoot
    :maxdepth: 2
    :caption: Contents:
 
-
-atoot API Documentation
--------------------------
-
-.. toctree::
-   :maxdepth: 2
-
+   quickstart
    api
 

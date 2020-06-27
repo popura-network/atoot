@@ -1,5 +1,6 @@
 from atoot.api import (
     MastodonAPI, client,
+    MastodonError,
     NetworkError,
     ApiError,
     ClientError,
