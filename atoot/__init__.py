@@ -1,3 +1,15 @@
-from atoot.api import MastodonAPI, client
-from atoot.api import (MastodonError, ApiError, UnauthorizedError, \
-        ForbiddenError, ServerError, RatelimitError, NetworkError)
+from atoot.api import (
+    MastodonAPI, client,
+    NetworkError,
+    ApiError,
+    ClientError,
+    UnauthorizedError,
+    ForbiddenError,
+    NotFoundError,
+    ConflictError,
+    GoneError,
+    UnprocessedError,
+    RatelimitError,
+    ServerError,
+    UnavailableError
+)

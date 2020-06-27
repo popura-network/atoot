@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import asyncio
 import uuid
+import time
 
 from collections import UserList
 from urllib.parse import urlencode
@@ -8,7 +9,7 @@ from contextlib import asynccontextmanager, suppress
 
 import aiohttp
 
-__useragent__ = "atoot/1.0; (+https://github.com/popura-network/atoot)"
+__useragent__ = "atoot/1.x; (+https://github.com/popura-network/atoot)"
 SCOPES = 'read write follow'
 REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
 
@@ -58,11 +59,29 @@ class MastodonAPI:
         self.base_url = None
         self.session = None
 
+        self.ratelimit_limit = "300"
+        self.ratelimit_remaining = "300"
+        self.ratelimit_reset = None
+        self.ratelimit_server_date = None
+        self.ratelimit_lastcall = None
+
     def get_access_token(self):
         return self._access_token
 
     async def close(self):
         await self.session.close()
+
+    def _set_ratelimit_params(self, r):
+        if "X-RateLimit-Limit" in r.headers: 
+            self.ratelimit_limit = r.headers["X-RateLimit-Limit"]
+        if "X-RateLimit-Remaining" in r.headers: 
+            self.ratelimit_remaining = r.headers["X-RateLimit-Remaining"]
+        if "X-RateLimit-Reset" in r.headers: 
+            self.ratelimit_reset = r.headers["X-RateLimit-Reset"]
+        if "Date" in r.headers: 
+            self.ratelimit_server_date = r.headers["Date"]
+
+        self.ratelimit_lastcall = time.time()
 
     async def __api_request(self, method, url, use_json=False, 
             headers={}, params=None, files=None):
@@ -87,6 +106,7 @@ class MastodonAPI:
             raise NetworkError("Could not complete request: %s" % e)
 
         async with r:
+            self._set_ratelimit_params(r)
             await check_exception(r)
 
             try:
