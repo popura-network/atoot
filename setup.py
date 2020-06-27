@@ -1,6 +1,6 @@
 from setuptools import setup
 
-__version__ = "1.0.post1"
+__version__ = "1.0.1"
 
 test_deps = [
     'pytest'
