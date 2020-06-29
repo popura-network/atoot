@@ -40,7 +40,7 @@ class MastodonAPI:
     @classmethod
     async def create(cls, instance, client_id=None, client_secret=None, 
             access_token=None, use_https=True, session=None):
-        """Async factory method. Returns MastodonAPI instance.
+        """Async factory method. 
 
         :param instance: domain name of an instance, i.e. 'mastodon.social'
         :param client_id: (optional) 
@@ -48,6 +48,7 @@ class MastodonAPI:
         :param access_token: (optional) 
         :param use_https: (optional) set False to use plain text http
         :param session: (optional) aiohttp.ClientSession instance
+        :return: MastodonAPI instance.
 
         Usage::
 
@@ -168,7 +169,7 @@ class MastodonAPI:
     async def get_n_pages(self, task, n=1):
         """A shortcut function to get up to N number of pages from a paginated task.
 
-        :param task: a coroutine which returns paginated results
+        :param task: a coroutine which returns a paginated list of objects
         :param n: (optional) number of pages to get
 
         Usage::
@@ -189,7 +190,7 @@ class MastodonAPI:
     async def get_all(self, task):
         """A shortcut function to get up to N number of pages from a paginated task.
 
-        :param task: a coroutine which returns paginated results
+        :param task: a coroutine which returns a paginated list of objects
 
         Usage::
 
@@ -239,14 +240,14 @@ class MastodonAPI:
     async def create_app(session, instance, use_https=True, scopes=SCOPES,
             client_name="atoot", client_website=None):
         """Create a new application to obtain OAuth2 credentials.
-        Returns client_id and client_secret values.
-
+        
         :param session: aiohttp.ClientSession instance
         :param instance: domain name of an instance, i.e. 'mastodon.social'
         :param use_https: (optional) set False to use plain text http
         :param scopes: (optional) application scope, default is 'read write follow'
         :param client_name: (optional) 
         :param client_website: (optional) 
+        :return: client_id and client_secret values.
 
         Usage:
 
@@ -298,9 +299,8 @@ class MastodonAPI:
     async def login(session, instance, client_id, client_secret, 
             use_https=True, username=None, password=None, oauth_code=None, 
             scope=SCOPES):
-        """Login to the MastodonAPI instance. Returns OAuth access_code.
-        Store this access_token for later use with authenticated client. 
-
+        """Login to the MastodonAPI instance. 
+         
         :param session: aiohttp.ClientSession instance
         :param instance: domain name of an instance, i.e. 'mastodon.social'
         :param client_id:
@@ -310,6 +310,7 @@ class MastodonAPI:
         :param password: (optional) password of your account
         :param oauth_code: (optional) code from a browser_login_url page
         :param scope: (optional) application scope, default is 'read write follow'
+        :return: OAuth access_code. Store this access_token for later use with authenticated client.
         """
         params = {
             "client_id": client_id, "client_secret": client_secret,
@@ -354,10 +355,10 @@ class MastodonAPI:
 
     async def register_account(self, username, email, password, agreement, 
             locale, reason=None, params={}):
-        """Creates a user and account records. Returns an account access token 
-        for the app that initiated the request. The app should save this token 
-        for later, and should wait for the user to confirm their account by 
-        clicking a link in their email inbox."""
+        """Creates a user and account records. 
+
+        :return: Returns an account access token for the app that initiated the request. The app should save this token for later, and should wait for the user to confirm their account by  clicking a link in their email inbox.
+        """
         if reason: params["reason"] = reason
         params["username"] = username
         params["email"] = email
@@ -367,7 +368,10 @@ class MastodonAPI:
         return await self.post('/api/v1/accounts', params=params)
 
     async def verify_account_credentials(self):
-        """Test to make sure that the user token works."""
+        """Test to make sure that the user token works. 
+        
+        :return: user's own Account with Source
+        """
         return await self.get('/api/v1/accounts/verify_credentials')
 
     async def update_account_credentials(self, discoverable=None, bot=None, 
@@ -400,6 +404,11 @@ class MastodonAPI:
         return await self._account_info(account)
 
     async def account_statuses(self, account):
+        """Statuses posted to the given account. 
+
+        :param account: Account object or id string
+        :return: a list of statuses
+        """
         return await self._account_info(account, 'statuses')
 
     async def account_followers(self, account, params={}, limit=None):
@@ -541,7 +550,23 @@ class MastodonAPI:
     ):
         """
         Posts a new status.
-        https://github.com/tootsuite/documentation/blob/master/Using-the-API/API.md#posting-a-new-status
+
+        :param status: (optional) Text content of the status. If media_ids is provided, this becomes optional. Attaching a poll is optional while status is provided.
+        :param media_ids: (optional) Array of Attachment ids to be attached as media. If provided, status becomes optional, and poll cannot be used.
+        :param poll_options: (optional) Array of possible answers. If provided, media_ids cannot be used, and poll[expires_in] must be provided.
+        :param poll_expires_in: (optional) Duration the poll should be open, in seconds. If provided, media_ids cannot be used, and poll[options] must be provided.
+        :param poll_multiple: (optional) Allow multiple choices?
+        :param poll_hide_totals: (optional) Hide vote counts until the poll ends?
+        :param in_reply_to_id: (optional) ID of the status being replied to, if status is a reply
+        :param sensitive: (optional) Mark status and attached media as sensitive?
+        :param spoiler_text: (optional) Text to be shown as a warning or subject before the actual content. Statuses are generally collapsed behind this field.
+        :param visibility: (optional) Visibility of the posted status. Enumerable oneOf public, unlisted, private, direct.
+        :param scheduled_at: (optional) ISO 8601 Datetime at which to schedule a status. Providing this paramter will cause ScheduledStatus to be returned instead of Status. Must be at least 5 minutes in the future.
+        :param language: (optional) ISO 639 language code for this status.
+        :type poll_multiple: bool
+        :type poll_hide_totals: bool
+        :type sensitive: bool
+        :return: Status object. When scheduled_at is present, ScheduledStatus is returned instead.
         """
 
         # Idempotency key assures the same status is not posted multiple times
@@ -570,8 +595,9 @@ class MastodonAPI:
 
     async def delete_status(self, status):
         """
-        Deletes a status with given ID.
-        https://github.com/tootsuite/documentation/blob/master/Using-the-API/API.md#deleting-a-status
+        Deletes a status.
+
+        :param status: Status object or id string
         """
         return await self.delete('/api/v1/statuses/%s' % get_id(status))
 
@@ -731,8 +757,18 @@ class MastodonAPI:
 
 
     def streaming(self, stream, list_filter=None, tag_filter=None):
-        """Possible stream values:
-            user, public, public:local, hashtag, hashtag:local, list, direct"""
+        """Asynchronous context manager for using websocket streaming API
+
+        :params stream: one of the following: user, public, public:local, hashtag, hashtag:local, list, direct
+        :return: aiohttp.ClientWebSocketResponse object
+
+        Usage::
+
+            async with client.streaming("user") as ws:
+                async for msg in ws:
+                    print(msg.json())
+
+        """
         ws_url =  "{}/api/v1/streaming/?stream={}&access_token={}".format(
                 self.base_url, stream, self._access_token)
         if list_filter: ws_url += "&list=%s" % list_filter
@@ -749,18 +785,32 @@ class MastodonAPI:
 
     async def get_notifications(self, params={}, limit=None, exclude_types=None,
                                 account=None):
+        """Receive notifications for activity on your account or statuses.
+
+        :param limit: Maximum number of results to return (default 20)
+        :param exclude_types: Array of types to exclude (follow, favourite, reblog, mention, poll)
+        :param account: Return only notifications received from this account
+        :return: List of notifications
+        """
         if limit: params["limit"] = limit
         if exclude_types: params["exclude_types"] = exclude_types
         if account: params["account_id"] = get_id(account)
         return await self.get('/api/v1/notifications', params=params)
 
     async def get_notification(self, notification):
+        """View information about a notification with a given ID.
+
+        :param notification: 
+        :return: Notification object
+        """
         return await self.get('/api/v1/notifications/%s' % get_id(notification))
 
     async def clear_notifications(self):
+        """Clear all notifications from the server."""
         await self.post('/api/v1/notifications/clear')
 
     async def clear_notification(self, notification):
+        """Clear a single notification from the server."""
         return await self.post(
                 '/api/v1/notifications/%s/dismiss' % get_id(notification))
 
@@ -897,6 +947,19 @@ class MastodonAPI:
 
 @asynccontextmanager
 async def client(*args, **kwargs):
+    """Context manager for using MastodonAPI object. Arguments are the same as
+    for :meth:`atoot.MastodonAPI.create` factory method.
+
+    Usage::
+
+        async with atoot.client(instance, access_token=access_token) as c:
+            # Retrieve your account information
+            print(await c.verify_account_credentials())
+            # Create a status 
+            print(await c.create_status(status="Hello world!"))
+            # Get 3 pages of a local timeline
+            print(await c.get_n_pages(c.public_timeline(local=True), n=3))
+    """
     c = await MastodonAPI.create(*args, **kwargs)
     try:
         yield c
