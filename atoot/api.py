@@ -40,7 +40,21 @@ class MastodonAPI:
     @classmethod
     async def create(cls, instance, client_id=None, client_secret=None, 
             access_token=None, use_https=True, session=None):
-        """Async factory method"""
+        """Async factory method. Returns MastodonAPI instance.
+
+        :param instance: domain name of an instance, i.e. 'mastodon.social'
+        :param client_id: (optional) 
+        :param client_secret: (optional) 
+        :param access_token: (optional) 
+        :param use_https: (optional) set False to use plain text http
+        :param session: (optional) aiohttp.ClientSession instance
+
+        Usage::
+
+        >>> c = await atoot.MastodonAPI.create("botsin.space", access_token="...")
+        >>> print(await c.verify_account_credentials())
+        >>> await c.close()
+        """
         self = cls()
         self.instance = instance
         self.client_id = client_id
@@ -69,6 +83,7 @@ class MastodonAPI:
         return self._access_token
 
     async def close(self):
+        """Close all network connections and shut down MastodonAPI"""
         await self.session.close()
 
     def _set_ratelimit_params(self, r):
@@ -125,18 +140,41 @@ class MastodonAPI:
         return content
 
     async def get_next(self, response):
+        """Get next page of paginated results
+
+        :param response: ResponseList
+
+        Usage::
+
+        >>> page1 = await client.public_timeline()
+        >>> if page1.next:
+        >>>     page2 = await client.get_next(page1)
+        """
         if not response.next:
             raise ValueError("No next page")
         return await self.__api_request(response.method, response.next,
                                         **response.kwargs)
 
     async def get_previous(self, response):
+        """Get previous page of paginated results (see MastodonAPI.get_next)
+
+        :param response: ResponseList
+        """
         if not response.previous:
             raise ValueError("No previous page")
         return await self.__api_request(response.method, response.previous,
                                         **response.kwargs)
 
     async def get_n_pages(self, task, n=1):
+        """A shortcut function to get up to N number of pages from a paginated task.
+
+        :param task: a coroutine which returns paginated results
+        :param n: (optional) number of pages to get
+
+        Usage::
+
+        >>> statuses = await client.get_n_pages(client.public_timeline(), n=5)
+        """
         resp = await task
         results = resp.copy()
         p = 1
@@ -149,7 +187,14 @@ class MastodonAPI:
         return results
 
     async def get_all(self, task):
-        """Get all results from a task"""
+        """A shortcut function to get up to N number of pages from a paginated task.
+
+        :param task: a coroutine which returns paginated results
+
+        Usage::
+
+        >>> statuses = await client.get_n_pages(client.public_timeline())
+        """
         resp = await task
         results = resp.copy()
 
@@ -191,11 +236,29 @@ class MastodonAPI:
                 '/api/v1/statuses/%s/%s' % (get_id(status), action))
 
     @staticmethod
-    async def create_app(session, instance, use_https=True, scope=None,
+    async def create_app(session, instance, use_https=True, scopes=SCOPES,
             client_name="atoot", client_website=None):
-        """Create a new application to obtain OAuth2 credentials."""
+        """Create a new application to obtain OAuth2 credentials.
+        Returns client_id and client_secret values.
+
+        :param session: aiohttp.ClientSession instance
+        :param instance: domain name of an instance, i.e. 'mastodon.social'
+        :param use_https: (optional) set False to use plain text http
+        :param scopes: (optional) application scope, default is 'read write follow'
+        :param client_name: (optional) 
+        :param client_website: (optional) 
+
+        Usage:
+
+        >>> async with aiohttp.ClientSession() as session:
+        >>>    client_id, client_secret = await atoot.MastodonAPI.create_app(session, 
+        >>>       "botsin.space", client_name="test_bot", 
+        >>>       client_website="https://example.com/")
+        >>>    print(client_id, client_secret)
+        """
+
         params = {
-            'client_name': client_name, 'scopes': scope if scope else SCOPES,
+            'client_name': client_name, 'scopes': scopes,
             'redirect_uris': REDIRECT_URI,
         }
         if client_website: params["website"] = client_website
@@ -215,7 +278,12 @@ class MastodonAPI:
 
     @staticmethod
     def browser_login_url(instance, client_id, use_https=True):
-        """Returns a URL for manual log in via browser"""
+        """Returns a URL for manual log in via browser
+        
+        :param instance: domain name of an instance, i.e. 'mastodon.social'
+        :param client_id:
+        :param use_https: (optional) set False to use plain text http
+        """
         return "http{}://{}/oauth/authorize/?{}".format(
             "s" if use_https else "", instance,
             urlencode({
@@ -229,12 +297,23 @@ class MastodonAPI:
     @staticmethod
     async def login(session, instance, client_id, client_secret, 
             use_https=True, username=None, password=None, oauth_code=None, 
-            scope=None):
-        """Get OAuth access_token from the server"""
+            scope=SCOPES):
+        """Login to the MastodonAPI instance. Returns OAuth access_code.
+        Store this access_token for later use with authenticated client. 
+
+        :param session: aiohttp.ClientSession instance
+        :param instance: domain name of an instance, i.e. 'mastodon.social'
+        :param client_id:
+        :param client_secret:
+        :param use_https: (optional) set False to use plain text http
+        :param username: (optional) e-mail of your account
+        :param password: (optional) password of your account
+        :param oauth_code: (optional) code from a browser_login_url page
+        :param scope: (optional) application scope, default is 'read write follow'
+        """
         params = {
             "client_id": client_id, "client_secret": client_secret,
-            "redirect_uri": REDIRECT_URI,
-            "scope": scope if scope else SCOPES,
+            "redirect_uri": REDIRECT_URI, "scope": scope,
         }
 
         if username and password:
@@ -261,17 +340,24 @@ class MastodonAPI:
         return res["access_token"]
 
     async def revoke_token(self, client_id, client_secret, token):
+        """Revoke an access token to make it no longer valid for use.
+        """
         params = {"client_id": client_id, "client_secret": client_secret, 
                 "token": token}
         return await self.post("/oauth/revoke", params=params)
 
     async def verify_app_credentials(self):
+        """Confirm that the app's OAuth2 credentials work."""
         return await self.get('/api/v1/apps/verify_credentials')
 
     ### Methods concerning user accounts and related information.
 
     async def register_account(self, username, email, password, agreement, 
             locale, reason=None, params={}):
+        """Creates a user and account records. Returns an account access token 
+        for the app that initiated the request. The app should save this token 
+        for later, and should wait for the user to confirm their account by 
+        clicking a link in their email inbox."""
         if reason: params["reason"] = reason
         params["username"] = username
         params["email"] = email
@@ -281,11 +367,23 @@ class MastodonAPI:
         return await self.post('/api/v1/accounts', params=params)
 
     async def verify_account_credentials(self):
+        """Test to make sure that the user token works."""
         return await self.get('/api/v1/accounts/verify_credentials')
 
-    async def update_credentials(self, discoverable=None, bot=None, 
+    async def update_account_credentials(self, discoverable=None, bot=None, 
             display_name=None, note=None,  avatar=None, header=None, 
             locked=None, fields_attributes=None, params={}):
+        """Update the user's display and preferences.
+
+        :param discoverable: (optional) Whether the account should be shown in the profile directory.
+        :param bot: (optional) Whether the account has a bot flag.
+        :param display_name: (optional) The display name to use for the profile.
+        :param note: (optional) The account bio.
+        :param avatar: (optional) Avatar image encoded using multipart/form-data
+        :param header: (optional) Header image encoded using multipart/form-data
+        :param locked: (optional) Whether manual approval of follow requests is required.
+        :param fields_attributes: (optional) Profile metadata name and value. (By default, max 4 fields and 255 characters per property/value)
+        """
         if discoverable is not None: 
             params["discoverable"] = str_bool(discoverable)
         if bot is not None: params["bot"] = str_bool(bot)
