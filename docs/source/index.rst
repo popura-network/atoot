@@ -6,6 +6,10 @@
 atoot
 =====
 
+Documentation is still WIP, many methods and parameters are still not documented.
+
+Meanwhile, look at `atoot/api.py` file for a full list of available methods.
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
