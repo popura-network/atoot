@@ -5,6 +5,14 @@ A general information about asynchronous I/O in Python can be found in the `stan
 
 .. _standard library documentation: https://docs.python.org/3/library/asyncio.html
 
+Installation
+------------
+
+.. code-block::
+
+   pip install -U atoot
+
+
 Register an application and get the authentication token
 --------------------------------------------------------
 
