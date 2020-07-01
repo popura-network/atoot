@@ -25,16 +25,53 @@ Core Interface
 .. automethod:: MastodonAPI.verify_app_credentials
 .. automethod:: MastodonAPI.register_account
 
+Accounts
+--------
+
 .. automethod:: MastodonAPI.verify_account_credentials
 .. automethod:: MastodonAPI.update_account_credentials
+.. automethod:: MastodonAPI.account
+.. automethod:: MastodonAPI.account_statuses
+.. automethod:: MastodonAPI.account_follow
+.. automethod:: MastodonAPI.account_unfollow
+.. automethod:: MastodonAPI.account_search
 
+Statuses
+--------
 
 .. automethod:: MastodonAPI.create_status
+.. automethod:: MastodonAPI.delete_status
+.. automethod:: MastodonAPI.view_status
+.. automethod:: MastodonAPI.status_context
+.. automethod:: MastodonAPI.status_favourite
+.. automethod:: MastodonAPI.status_unfavourite
+.. automethod:: MastodonAPI.status_boost
+.. automethod:: MastodonAPI.status_unboost
+
+Media
+-----
+
+.. automethod:: MastodonAPI.upload_attachment
+.. automethod:: MastodonAPI.update_attachment
+
+Timelines
+---------
+
+.. automethod:: MastodonAPI.public_timeline
+.. automethod:: MastodonAPI.hashtag_timeline
+.. automethod:: MastodonAPI.home_timeline
+.. automethod:: MastodonAPI.list_timeline
+
+Notifications
+-------------
 
 .. automethod:: MastodonAPI.get_notifications
 .. automethod:: MastodonAPI.get_notification
 .. automethod:: MastodonAPI.clear_notifications
 .. automethod:: MastodonAPI.clear_notification
+
+Streaming API
+-------------
 
 .. automethod:: MastodonAPI.streaming
 

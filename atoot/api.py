@@ -188,13 +188,13 @@ class MastodonAPI:
         return results
 
     async def get_all(self, task):
-        """A shortcut function to get up to N number of pages from a paginated task.
+        """A shortcut function to get all results from a paginated task.
 
         :param task: a coroutine which returns a paginated list of objects
 
         Usage::
 
-        >>> statuses = await client.get_n_pages(client.public_timeline())
+        >>> notifs = await client.get_all(client.get_notifications())
         """
         resp = await task
         results = resp.copy()
@@ -401,6 +401,11 @@ class MastodonAPI:
                 params=params)
 
     async def account(self, account):
+        """View information about a profile.
+
+        :param account: Account object or id string
+        :return: Account object
+        """
         return await self._account_info(account)
 
     async def account_statuses(self, account):
@@ -426,9 +431,11 @@ class MastodonAPI:
         return await self._account_info(account, 'identity_proofs')
 
     async def account_follow(self, account):
+        """Follow the given account."""
         return await self._account_action(account, "follow")
 
     async def account_unfollow(self, account):
+        """Unfollow the given account."""
         return await self._account_action(account, "unfollow")
 
     async def account_block(self, account):
@@ -455,6 +462,14 @@ class MastodonAPI:
 
     async def account_search(self, query, limit=None, resolve=None, 
                                    following=None):
+        """Search for matching accounts by username or display name.
+        
+        :param query: What to search for
+        :param limit: Maximum number of results. Defaults to 40. 
+        :param resolve: Attempt WebFinger lookup. Defaults to false. Use this when query is an exact address.
+        :param following: Only who the user is following. Defaults to false.
+        :return: a list of Accounts
+        """
         return await self.get('/api/v1/accounts/search', params={'q': query})
 
     ### Accounts/misc
@@ -602,9 +617,11 @@ class MastodonAPI:
         return await self.delete('/api/v1/statuses/%s' % get_id(status))
 
     async def view_status(self, status):
+        """View information about a status."""
         return await self._status_info(status)
 
     async def status_context(self, status):
+        """View statuses above and below this status in the thread."""
         return await self._status_info(status, 'context')
 
     async def status_reblogged_by(self, status):
@@ -614,15 +631,19 @@ class MastodonAPI:
         return await self._status_info(status, 'favourited_by')
 
     async def status_favourite(self, status):
+        """Add a status to your favourites list."""
         return await self._status_action(status, "favourite")
 
     async def status_unfavourite(self, status):
+        """Remove a status from your favourites list."""
         return await self._status_action(status, "unfavourite")
 
     async def status_boost(self, status):
+        """Reshare a status."""
         return await self._status_action(status, "reblog")
 
     async def status_unboost(self, status):
+        """Undo a reshare of a status."""
         return await self._status_action(status, "unreblog")
 
     async def status_bookmark(self, status):
@@ -646,6 +667,12 @@ class MastodonAPI:
     ### Statuses/Misc
     async def upload_attachment(self, fileobj, params={}, description=None, 
                            focal=None):
+        """Creates an attachment to be used with a new status.
+
+        :param fileobj: file object, i.e. fileobj=open('image.jpg', 'rb')
+        :param description: A plain-text description of the media, for accessibility purposes.
+        :param focal: Two floating points (x,y), comma-delimited, ranging from -1.0 to 1.0
+        """
         params["file"] = fileobj
         if description: params["description"] = description
         if focal: params["focal"] = focal
@@ -653,6 +680,8 @@ class MastodonAPI:
 
     async def update_attachment(self, attachment, fileobj=None, params={}, 
             description=None, focal=None):
+        """Update an Attachment, before it is attached to a status and posted.
+        """
         if fileobj: params["file"] = fileobj
         if description: params["description"] = description
         if focal: params["focal"] = focal
@@ -683,6 +712,13 @@ class MastodonAPI:
     ### Timelines
     async def public_timeline(self, params={}, limit=None, 
             local=None, only_media=None):
+        """View statuses from the public timeline
+
+        :param limit: Maximum number of results to return. Defaults to 20.
+        :param local: If true, return only local statuses. Defaults to false.
+        :param only_media: If true, return only statuses with media attachments. Defaults to false.
+        :returns: List of Statuses
+        """
         if limit: params["limit"] = limit
         if local is not None: params["local"] = str_bool(local)
         if only_media is not None: params["only_media"] = str_bool(only_media)
@@ -690,6 +726,14 @@ class MastodonAPI:
 
     async def hashtag_timeline(self, hashtag, params={}, limit=None, 
             local=None, only_media=None):
+        """View public statuses containing the given hashtag.
+
+        :param hashtag: Content of a #hashtag, not including # symbol.
+        :param limit: Maximum number of results to return. Defaults to 20.
+        :param local: If true, return only local statuses. Defaults to false.
+        :param only_media: If true, return only statuses with media attachments. Defaults to false.
+        :returns: List of Statuses
+        """
         if limit: params["limit"] = limit
         if local is not None: params["local"] = str_bool(local)
         if only_media is not None: params["only_media"] = str_bool(only_media)
@@ -697,11 +741,24 @@ class MastodonAPI:
                 params=params)
 
     async def home_timeline(self, params={}, limit=None, local=None):
+        """View statuses from followed users.
+
+        :param limit: Maximum number of results to return. Defaults to 20.
+        :param local: If true, return only local statuses. Defaults to false.
+        :returns: List of Statuses
+        """
         if limit: params["limit"] = limit
         if local is not None: params["local"] = str_bool(local)
         return await self.get('/api/v1/timelines/home', params=params)
 
     async def list_timeline(self, _list, params={}, limit=None):
+        """View statuses in the given list timeline.
+
+        :param _list: Local ID of the list in the database.
+        :param limit: Maximum number of results to return. Defaults to 20.
+        :param local: If true, return only local statuses. Defaults to false.
+        :returns: List of Statuses
+        """
         if limit: params["limit"] = limit
         return await self.get('/api/v1/timelines/list/%s' % get_id(_list), 
                 params=params)
