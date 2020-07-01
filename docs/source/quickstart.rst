@@ -8,7 +8,7 @@ A general information about asynchronous I/O in Python can be found in the `stan
 Installation
 ------------
 
-.. code-block::
+::
 
    pip install -U atoot
 
