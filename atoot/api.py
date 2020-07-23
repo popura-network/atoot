@@ -798,13 +798,15 @@ class MastodonAPI:
         return await self.get('/api/v1/lists/%s/accounts' % get_id(_list),
                 params=params) 
 
-    async def list_accounts_add(self, _list, account_ids):
+    async def list_accounts_add(self, _list, accounts):
+        account_ids = [get_id(a) for a in accounts]
         return await self.post('/api/v1/lists/%s/accounts' % get_id(_list), 
-                params={"account_ids": account_ids})
+                params={"account_ids": account_ids}, use_json=True)
 
-    async def list_accounts_remove(self, _list, account_ids):
+    async def list_accounts_remove(self, _list, accounts):
+        account_ids = [get_id(a) for a in accounts]
         return await self.delete('/api/v1/lists/%s/accounts' % get_id(_list), 
-                params={"account_ids": account_ids})
+                params={"account_ids": account_ids}, use_json=True)
 
     async def markers_get(self):
         return await self.get('/api/v1/markers')
